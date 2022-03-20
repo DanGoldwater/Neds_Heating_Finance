@@ -1,6 +1,9 @@
 #%%
+import seaborn
 from dataclasses import dataclass
 import numpy_financial as npf
+import numpy as np
+import pandas as pd
 
 mortgage_1 = {
     'loan_years': 30,
@@ -15,6 +18,11 @@ class scenario:
     loan_amount: int
     electricity_price: float
     heating_need: int
+    hot_water_need: int
+    
+    def __post_init__(self) -> None:
+        self.total_need = self.hot_water_need + self.heating_need
+        pass
     
     def monthly_loan_payment(self):
         int_per_month = self.rate / (100 * 12)
@@ -22,55 +30,77 @@ class scenario:
 
     def monthly_heat_source_bill(self):
         COP_air_source = 3.4
-        return (self.heating_need / COP_air_source) * self.electricity_price
+        return (self.total_need / (12 *  COP_air_source)) * self.electricity_price
 
     def monthly_ordinary_heating_bill(self):
-        return self.heating_need * self.electricity_price 
+        night_to_day_use_ratio = 2
+        night_to_day_price_ratio = 2/3
+        night_price = night_to_day_price_ratio * self.electricity_price
+        night_use = (night_to_day_use_ratio / (night_to_day_use_ratio + 1)) * self.heating_need
+        day_use = self.heating_need - night_use
+        day_cost = (day_use + self.hot_water_need) * self.electricity_price
+        night_cost = night_use * night_price
+        return (day_cost + night_cost) / 12
 
     def monthly_air_total(self):
         return self.monthly_loan_payment() + self.monthly_heat_source_bill()
 
     def give_summary(self):
-        print(f'Monthly loan payments would be £{self.monthly_loan_payment() } ')
-        print(f'Monthly heating bill would be £{self.monthly_heat_source_bill()} ')
-        print(f'Monthly total bill would be {self.monthly_air_total()}')
+        print(f'Monthly loan payments would be £{self.monthly_loan_payment():.2f} ')
+        print(f'Monthly heating bill would be £{self.monthly_heat_source_bill():.2f} ')
+        print(f'Monthly total bill would be {self.monthly_air_total():.2f}')
         print(f'\n Or, with just electric heating:')
-        print(f'Monthly heating bill would be £{self.monthly_ordinary_heating_bill() } ')
+        print(f'Monthly heating bill would be £{self.monthly_ordinary_heating_bill():.2f} ')
     
+def make_changing_electric_price_data(scenario, e_min = .1, e_max = .7):
+    e_range = np.arange(e_min, e_max, .01)
+    air_source_payments = []
+    ordinary_payments = []
+    for e in e_range:
+        scenario.electricity_price = e
+        air_source_payments += [scenario.monthly_air_total()]
+        ordinary_payments += [scenario.monthly_ordinary_heating_bill()]
+    df = pd.DataFrame({
+        'electricity': e_range,
+        'Ordinary Price': ordinary_payments,
+        'Air Source': air_source_payments
+    }) 
+    return df
+
+
+def make_scenario_electricity_plot(scenario):
+    df = make_changing_electric_price_data(scenario)
+    dfm = df.melt('electricity', var_name='Energy Type', value_name='Price')
+    plot_here = seaborn.lineplot(data=dfm, x='electricity', y='Price', hue='Energy Type')
+    plot_here.set_xlabel('Price per kWh (£)')
+    plot_here.set_ylabel('Price per month')
+    return plot_here
+
+ 
 
 
 
-def monthly_loan_payment(loan_years, loan_amount, rate, **_):
-    int_per_month = rate / (100 * 12)
-    return - npf.pmt(int_per_month, 12 * loan_years, loan_amount)
+def estimate_load():
+    Nc = 15_000
+    Lc = 27_000
+    Lp = 17_000
+    Nw = 3_500
+    K = 1.4
+    return (Nc * K * (Lp / Lc)) + Nw
 
-def monthly_heat_source_bill(heating_need, electricity_price, **_):
-    COP_air_source = 3.4
-    return (heating_need / COP_air_source) * electricity_price
 
-def monthly_ordinary_heating_bill(heating_need, electricity_price, **_):
-    return heating_need * electricity_price 
+print(estimate_load())
 
-def give_summary(scenario):
-    monthly_loan = monthly_loan_payment(**scenario)
-    monthly_air_bill = monthly_heat_source_bill(**scenario)
-    ordinary_bill = monthly_ordinary_heating_bill(**scenario)
-    print(f'Monthly loan payments would be £{monthly_loan} ')
-    print(f'Monthly heating bill would be £{monthly_air_bill} ')
-    print(f'Monthly total bill would be {monthly_loan + monthly_air_bill}')
-    print(f'\n Or, with just electric heating:')
-    print(f'Monthly heating bill would be £{ordinary_bill} ')
-    
 
-scen_1 = {
-    'loan_years': 25,
-    'rate': 6,
+Neds_current_low_heat = scenario(**{
+    'loan_years': 20,
+    'rate': 5,
     'loan_amount': 40_000,
-    'electricity_price': .3,
-    'heating_need': 25000
-}
+    'heating_need': 15_000,
+    'hot_water_need': 3500,
+    'electricity_price': .2,
+ })
+
     
-scennn_1 = scenario(**scen_1) 
-scennn_1.give_summary()
-    
+Neds_current_low_heat.give_summary()
 
