@@ -76,8 +76,10 @@ def make_scenario_electricity_plot(scenario):
     plot_here.set_ylabel('Price per month')
     return plot_here
 
- 
-
+def find_crossing_price(scenario):
+    df = make_changing_electric_price_data(scenario)
+    df2 = df.loc[df['Ordinary Price'] > df['Air Source']]
+    return df2['electricity'].min()
 
 
 def estimate_load():
@@ -89,18 +91,17 @@ def estimate_load():
     return (Nc * K * (Lp / Lc)) + Nw
 
 
-print(estimate_load())
+# print(estimate_load())
 
 
-Neds_current_low_heat = scenario(**{
-    'loan_years': 20,
-    'rate': 5,
-    'loan_amount': 40_000,
-    'heating_need': 15_000,
-    'hot_water_need': 3500,
-    'electricity_price': .2,
- })
+# Neds_current_low_heat = scenario(**{
+#     'loan_years': 20,
+#     'rate': 5,
+#     'loan_amount': 40_000,
+#     'heating_need': 15_000,
+#     'hot_water_need': 3500,
+#     'electricity_price': .2,
+#  })
 
     
-Neds_current_low_heat.give_summary()
 
