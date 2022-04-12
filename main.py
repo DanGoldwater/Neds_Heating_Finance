@@ -5,6 +5,7 @@ import numpy_financial as npf
 import numpy as np
 import pandas as pd
 
+seaborn.set(rc = {'figure.figsize':(15,8)})
 mortgage_1 = {
     'loan_years': 30,
     'rate': 6,
